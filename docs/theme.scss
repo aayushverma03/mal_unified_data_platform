@@ -1,0 +1,112 @@
+/*-- scss:defaults --*/
+
+$font-family-sans-serif: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !default;
+$font-family-monospace: "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, monospace !default;
+
+$body-color: #1f2937 !default;
+$body-bg: #ffffff !default;
+$primary: #0f172a !default;
+$link-color: #2563eb !default;
+$border-color: #e5e7eb !default;
+
+$h1-font-size: 2.25rem !default;
+$h2-font-size: 1.5rem !default;
+$h3-font-size: 1.25rem !default;
+$headings-font-weight: 700 !default;
+$headings-color: #0f172a !default;
+$headings-line-height: 1.25 !default;
+
+/*-- scss:rules --*/
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+body {
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+}
+
+.title {
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.subtitle {
+  color: #64748b;
+  font-weight: 400;
+  font-size: 1.1rem;
+  margin-top: 0.25rem;
+}
+
+h2 {
+  margin-top: 2.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #e5e7eb;
+  letter-spacing: -0.015em;
+}
+
+h3 {
+  margin-top: 1.75rem;
+  letter-spacing: -0.01em;
+}
+
+.callout {
+  border-radius: 8px;
+  border-left-width: 4px;
+}
+
+.callout-note,
+.callout-tip {
+  background-color: #f8fafc;
+}
+
+.callout-tip {
+  border-left-color: #10b981 !important;
+}
+
+.callout-note {
+  border-left-color: #2563eb !important;
+}
+
+table {
+  font-size: 0.92rem;
+  border-collapse: collapse;
+}
+
+table thead th {
+  border-bottom: 2px solid #e5e7eb !important;
+}
+
+table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+code {
+  background-color: #f1f5f9;
+  color: #0f172a;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.sidebar-title {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+#TOC a {
+  color: #475569;
+}
+
+#TOC a:hover {
+  color: #2563eb;
+}
+
+hr {
+  border-top: 1px solid #e5e7eb;
+  margin: 2.5rem 0;
+}
+
+.grid {
+  gap: 1.25rem;
+}

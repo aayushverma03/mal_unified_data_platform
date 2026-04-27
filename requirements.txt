@@ -1,0 +1,23 @@
+# Pipeline runtime
+pydantic>=2.6,<3.0
+polars>=0.20,<2.0
+pyarrow>=15.0
+duckdb>=0.10
+pytz>=2024.1
+python-ulid>=2.2
+faker>=24.0
+
+# CLI / config
+# (argparse + pathlib are stdlib; no Click, no Typer)
+
+# Dashboard (D3, kept here for single-install convenience)
+streamlit>=1.32
+plotly>=5.20
+
+# Quarto report (D1 GitHub Pages live demo)
+jupyter>=1.0
+
+# Dev
+pytest>=8.0
+pytest-cov>=4.1
+ruff>=0.3

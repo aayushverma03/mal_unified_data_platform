@@ -1,0 +1,462 @@
+---
+title: "Mal Unified Payments Pipeline"
+subtitle: "Deliverable 1, live demo"
+format:
+  html:
+    theme:
+      light: [cosmo, theme.scss]
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    toc-title: "Contents"
+    code-fold: true
+    code-tools: true
+    embed-resources: true
+    output-file: index.html
+    fig-align: center
+    smooth-scroll: true
+    anchor-sections: true
+execute:
+  echo: true
+  warning: false
+  freeze: false
+jupyter: python3
+---
+
+```{python}
+#| include: false
+import os
+from pathlib import Path
+import json
+
+import duckdb
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import polars as pl
+
+ROOT = Path.cwd()
+if ROOT.name == "docs":
+    ROOT = ROOT.parent
+os.chdir(ROOT)
+DATA = ROOT / "data"
+SQL = ROOT / "sql"
+
+PAYMENT_COLORS = {"card": "#ef4444", "transfer": "#2563eb", "bill_payment": "#10b981"}
+SQUAD_COLORS = {"cards": "#ef4444", "transfers": "#2563eb", "bill_payments": "#10b981"}
+TEMPLATE = "plotly_white"
+FONT = dict(family="Inter, -apple-system, system-ui, sans-serif", size=13, color="#1f2937")
+
+def style(fig, height=380):
+    fig.update_layout(
+        template=TEMPLATE, font=FONT, height=height,
+        margin=dict(l=40, r=20, t=60, b=40),
+        title_font=dict(size=16, color="#0f172a"),
+        legend=dict(bgcolor="rgba(255,255,255,0.85)", bordercolor="#e5e7eb", borderwidth=1),
+        plot_bgcolor="white", paper_bgcolor="white",
+    )
+    return fig
+
+df = pl.read_parquet(str(DATA / "output" / "canonical" / "**" / "*.parquet"))
+total_events = df.shape[0]
+settled_usd = df.filter(pl.col("status") == "settled")["amount_usd_minor"].sum() / 100.0
+distinct_customers = df["customer_id"].n_unique()
+n_squads = df["source_squad"].n_unique()
+
+quarantine_root = DATA / "output" / "quarantine"
+q_records = []
+if quarantine_root.exists():
+    for run_dir in sorted(quarantine_root.iterdir()):
+        for f in run_dir.glob("*.json"):
+            squad = f.stem
+            for entry in json.loads(f.read_text()):
+                err = entry["error"].split("\n")[0]
+                err_class = "Pydantic ValidationError" if err.startswith("1 validation error") else err[:80]
+                q_records.append({"squad": squad, "error": err_class})
+q_total = len(q_records)
+total_attempted = total_events + q_total
+quarantine_rate_pct = (q_total / total_attempted * 100) if total_attempted else 0.0
+
+date_min = df["event_timestamp"].min()
+date_max = df["event_timestamp"].max()
+```
+
+::: {.callout-note appearance="minimal" icon=false}
+### Summary
+
+Three product squads at Mal (Cards, Transfers, Bill Payments) ship payment events with inconsistent schemas. This pipeline ingests their CSVs, normalizes them into a single canonical Parquet dataset, and quarantines bad rows without blocking the batch. Reviewers can run the whole thing locally in 30 seconds, or just read this page.
+
+Everything below is rendered from a fresh pipeline run on every push to main.
+:::
+
+## At a glance
+
+```{python}
+#| echo: false
+fig = make_subplots(
+    rows=1, cols=4,
+    specs=[[{"type": "indicator"}, {"type": "indicator"},
+            {"type": "indicator"}, {"type": "indicator"}]],
+)
+fig.add_trace(go.Indicator(
+    value=total_events, title=dict(text="Canonical events", font=dict(size=14, color="#64748b")),
+    number=dict(font=dict(size=36, color="#0f172a"), valueformat=",d"),
+), row=1, col=1)
+fig.add_trace(go.Indicator(
+    value=settled_usd, title=dict(text="Settled volume (USD)", font=dict(size=14, color="#64748b")),
+    number=dict(font=dict(size=36, color="#0f172a"), prefix="$", valueformat=",.0f"),
+), row=1, col=2)
+fig.add_trace(go.Indicator(
+    value=distinct_customers, title=dict(text="Distinct customers", font=dict(size=14, color="#64748b")),
+    number=dict(font=dict(size=36, color="#0f172a"), valueformat=",d"),
+), row=1, col=3)
+fig.add_trace(go.Indicator(
+    value=quarantine_rate_pct, title=dict(text="Quarantine rate", font=dict(size=14, color="#64748b")),
+    number=dict(font=dict(size=36, color="#dc2626"), suffix="%", valueformat=".2f"),
+), row=1, col=4)
+fig.update_layout(
+    template=TEMPLATE, font=FONT, height=170,
+    margin=dict(l=10, r=10, t=20, b=10),
+    paper_bgcolor="white", plot_bgcolor="white",
+)
+fig
+```
+
+```{python}
+#| echo: false
+#| output: asis
+print(
+    f"**Window:** {date_min.strftime('%Y-%m-%d')} to {date_max.strftime('%Y-%m-%d')}  "
+    f"  **Squads:** {n_squads}  "
+    f"  **Quarantined rows:** {q_total}  "
+    f"  **Pipeline:** `mal_payments` v0.2.0"
+)
+```
+
+## How it works
+
+```{mermaid}
+flowchart LR
+    A[cards.csv]:::raw --> B(Adapters):::stage
+    C[transfers.csv]:::raw --> B
+    D[bill_payments.csv]:::raw --> B
+    B --> V{Pydantic v2<br/>validation}:::stage
+    V -->|valid| P[(Canonical Parquet<br/>Hive-partitioned)]:::out
+    V -->|invalid| Q[Quarantine JSON<br/>per run]:::quarantine
+    P --> S[DuckDB<br/>5 SQL queries]:::out
+    P --> SL[Streamlit<br/>D3 dashboard]:::out
+
+    classDef raw fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef stage fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef out fill:#d1fae5,stroke:#10b981,color:#064e3b
+    classDef quarantine fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+```
+
+## Canonical schema
+
+::: {.grid}
+
+::: {.g-col-md-6 .g-col-12}
+**1. Event-grain, not payment-grain.** auth, capture, and refund are separate events linked by `correlation_id`. Lifecycle queries become trivial.
+
+**2. Integer minor units.** No floats anywhere downstream of parse. Reconciliation breaks under floats; v1 used floats and v2 fixed it.
+:::
+
+::: {.g-col-md-6 .g-col-12}
+**3. raw_payload preserved per row.** Squads keep their original fields. Auditability for free, and adoption gets easier.
+
+**4. payment_method_details as a JSON bag.** New payment types add an adapter, not a schema migration.
+:::
+
+:::
+
+## Sample records
+
+One row per source squad. Three different inputs, one shape.
+
+```{python}
+#| echo: false
+samples = (
+    df.group_by("source_squad")
+    .agg(pl.all().first())
+    .select([
+        "source_squad", "event_type", "amount_minor", "currency",
+        "amount_usd_minor", "status", "customer_id",
+        "counterparty_type", "counterparty_id",
+    ])
+    .sort("source_squad")
+)
+(samples.to_pandas().style
+ .format({"amount_minor": "{:,d}", "amount_usd_minor": "{:,.0f}"})
+ .hide(axis="index")
+ .set_table_styles([
+     {"selector": "th", "props": "background-color:#f1f5f9;color:#0f172a;font-weight:600;"},
+     {"selector": "td", "props": "padding:6px 12px;"},
+ ]))
+```
+
+The full row preserves the source payload. Here is `raw_payload` for the cards row:
+
+```{python}
+#| echo: false
+cards_sample = df.filter(pl.col("source_squad") == "cards").head(1).to_dicts()[0]
+json.loads(cards_sample["raw_payload"])
+```
+
+---
+
+## 01. Daily volume
+
+Cross-product daily volume in USD. Pre-platform, finance had to join three squad-specific tables to get this.
+
+```{python}
+#| echo: false
+q1 = duckdb.sql((SQL / "01_daily_volume_by_payment_type.sql").read_text()).df()
+q1["event_date"] = pd.to_datetime(q1["event_date"]).dt.date
+fig = px.bar(
+    q1.sort_values("event_date"),
+    x="event_date", y="gross_volume_usd", color="payment_type",
+    title="Daily settled volume (USD), stacked by payment type",
+    labels={"gross_volume_usd": "Volume (USD)", "event_date": "Date", "payment_type": "Payment type"},
+    color_discrete_map=PAYMENT_COLORS,
+    barmode="stack",
+)
+fig.update_traces(hovertemplate="<b>%{x}</b><br>%{fullData.name}: $%{y:,.0f}<extra></extra>")
+fig.update_xaxes(showgrid=False)
+fig.update_yaxes(gridcolor="#f1f5f9", tickprefix="$", separatethousands=True)
+style(fig, height=400)
+```
+
+::: {.callout-tip appearance="simple" icon=false}
+**Takeaway.** Transfers carry most of the dollar volume (UAE expat remittance traffic). Cards and bill payments are smaller in dollars but higher in event count. The canonical model exposes both views in one query.
+:::
+
+---
+
+## 02. Failures by squad
+
+`status_reason` is one column carrying decline codes from cards, return codes from transfers, and failure reasons from bills. Pre-platform, each squad had its own vocabulary.
+
+```{python}
+#| echo: false
+q2 = duckdb.sql((SQL / "02_failure_breakdown_by_squad.sql").read_text()).df()
+q2["label"] = q2["source_squad"] + " | " + q2["status_reason"]
+fig = px.pie(
+    q2, values="failures", names="label",
+    title="Share of failures by squad and reason (last 7 days)",
+    color="source_squad", color_discrete_map=SQUAD_COLORS,
+    hole=0.42,
+)
+fig.update_traces(
+    textposition="outside",
+    textinfo="label+percent+value",
+    texttemplate="<b>%{label}</b><br>%{value} | %{percent}",
+    pull=[0.04] * len(q2),
+    marker=dict(line=dict(color="white", width=2)),
+    hovertemplate="<b>%{label}</b><br>Failures: %{value}<br>Share: %{percent}<extra></extra>",
+)
+fig.update_layout(showlegend=False)
+style(fig, height=460)
+```
+
+::: {.callout-tip appearance="simple" icon=false}
+**Takeaway.** Bill payments has the largest single slice (mostly schema/config failures with no `status_reason` populated). Cards splits cleanly across three normalized decline reasons. That normalization is the platform value.
+:::
+
+---
+
+## 03. Auth-to-settle latency
+
+Lifecycle reconstruction via `correlation_id`. The auth event and the capture event are separate rows linked by the shared id.
+
+```{python}
+#| echo: false
+q3 = duckdb.sql((SQL / "03_authorization_to_settlement_latency.sql").read_text()).df()
+row = q3.iloc[0]
+percentiles = pd.DataFrame([
+    {"metric": "Min",  "seconds": row["min_seconds"]},
+    {"metric": "p50",  "seconds": row["p50_seconds"]},
+    {"metric": "p95",  "seconds": row["p95_seconds"]},
+    {"metric": "p99",  "seconds": row["p99_seconds"]},
+    {"metric": "Max",  "seconds": row["max_seconds"]},
+])
+fig = px.bar(
+    percentiles, x="metric", y="seconds",
+    title=f"Auth-to-settle latency across {int(row['captured_events']):,} card captures",
+    labels={"seconds": "Latency (seconds)", "metric": "Percentile"},
+    text="seconds", color="metric",
+    color_discrete_sequence=["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#7c3aed"],
+)
+fig.update_traces(texttemplate="%{text:.1f}s", textposition="outside",
+                  hovertemplate="<b>%{x}</b><br>%{y:.2f}s<extra></extra>")
+fig.update_layout(showlegend=False)
+fig.update_yaxes(gridcolor="#f1f5f9", ticksuffix="s")
+style(fig, height=380)
+```
+
+::: {.callout-tip appearance="simple" icon=false}
+**Takeaway.** p99 stays under 60 seconds across all card captures. The percentile spread is what an SLA owner cares about; a single-row table cannot show it.
+:::
+
+---
+
+## 04. Customer 360
+
+The flagship platform query. Pre-platform, this needed three squad extracts and manual customer-id reconciliation. With the canonical model, one query.
+
+```{python}
+#| echo: false
+q4 = duckdb.sql((SQL / "04_cross_product_customer_360.sql").read_text()).df()
+melted = q4.melt(
+    id_vars=["customer_id", "products_used"],
+    value_vars=["card_volume_usd", "transfer_volume_usd", "bill_volume_usd"],
+    var_name="payment_type", value_name="volume_usd",
+)
+melted["payment_type"] = melted["payment_type"].str.replace("_volume_usd", "").map({
+    "card": "card", "transfer": "transfer", "bill": "bill_payment",
+})
+fig = px.bar(
+    melted, x="volume_usd", y="customer_id", color="payment_type",
+    orientation="h", barmode="stack",
+    title="Top 20 customers, settled USD volume stacked by payment type",
+    labels={"volume_usd": "Volume (USD)", "customer_id": "Customer", "payment_type": "Payment type"},
+    color_discrete_map=PAYMENT_COLORS,
+)
+fig.update_traces(hovertemplate="<b>%{y}</b><br>%{fullData.name}: $%{x:,.0f}<extra></extra>")
+fig.update_layout(yaxis={"categoryorder": "total ascending"})
+fig.update_xaxes(gridcolor="#f1f5f9", tickprefix="$", separatethousands=True)
+style(fig, height=560)
+```
+
+```{python}
+#| echo: false
+display_df = q4.copy()
+display_df = display_df[[
+    "customer_id", "products_used", "card_events", "card_volume_usd",
+    "transfer_events", "transfer_volume_usd", "bill_events", "bill_volume_usd",
+    "total_volume_usd",
+]]
+for c in ("card_events", "transfer_events", "bill_events", "products_used"):
+    display_df[c] = display_df[c].astype(int)
+(display_df.style
+ .format({
+     "card_volume_usd": "${:,.2f}",
+     "transfer_volume_usd": "${:,.2f}",
+     "bill_volume_usd": "${:,.2f}",
+     "total_volume_usd": "${:,.2f}",
+ })
+ .bar(subset=["total_volume_usd"], color="#10b98133", align="left", width=85)
+ .hide(axis="index")
+ .set_table_styles([
+     {"selector": "th", "props": "background-color:#f1f5f9;color:#0f172a;font-weight:600;text-align:right;"},
+     {"selector": "td", "props": "padding:4px 10px;text-align:right;"},
+ ]))
+```
+
+::: {.callout-tip appearance="simple" icon=false}
+**Takeaway.** Customers with `products_used = 3` are the shared-pool cohort that overlaps across all three squads, the cross-product segment Customer Success cares about for VIP retention. Producing this view in one SQL was a multi-day analyst task before the platform.
+:::
+
+---
+
+## 05. Remittance corridors
+
+UAE to India, Philippines, Pakistan, Bangladesh, and Egypt are real expat-driven flows. Corridor visibility drives liquidity planning, partner-bank selection, and CBUAE reporting.
+
+```{python}
+#| echo: false
+q5 = duckdb.sql((SQL / "05_currency_exposure_remittance_corridors.sql").read_text()).df()
+q5["week_start"] = pd.to_datetime(q5["week_start"]).dt.date
+
+CORRIDOR_COLORS = {
+    "UAE (domestic)": "#0f172a", "India": "#f97316", "Philippines": "#06b6d4",
+    "Pakistan": "#22c55e", "Bangladesh": "#a855f7", "Egypt": "#eab308", "Other": "#94a3b8",
+}
+fig = px.line(
+    q5.sort_values("week_start"),
+    x="week_start", y="volume_usd", color="destination", markers=True,
+    title="Weekly transfer volume (USD) by destination corridor",
+    labels={"volume_usd": "Volume (USD)", "week_start": "Week starting", "destination": "Corridor"},
+    color_discrete_map=CORRIDOR_COLORS,
+)
+fig.update_traces(line=dict(width=2.5), marker=dict(size=8),
+                  hovertemplate="<b>%{x}</b><br>%{fullData.name}: $%{y:,.0f}<extra></extra>")
+fig.update_xaxes(showgrid=False)
+fig.update_yaxes(gridcolor="#f1f5f9", tickprefix="$", separatethousands=True)
+style(fig, height=420)
+```
+
+::: {.callout-tip appearance="simple" icon=false}
+**Takeaway.** Domestic UAE flows lead by a wide margin. India and Bangladesh are the largest international corridors, which lines up with Mal's expat customer base. Treasury can use this view directly for FX hedging and partner-bank capacity decisions.
+:::
+
+---
+
+## Quarantine
+
+A bad row from one squad does not block the others. Pipeline exits zero even with quarantined records; non-zero exit is reserved for infrastructure failures.
+
+```{python}
+#| echo: false
+qdf = pd.DataFrame(q_records)
+if not qdf.empty:
+    counts = qdf.groupby(["squad", "error"]).size().reset_index(name="n")
+    fig = px.bar(
+        counts.sort_values("n"), x="n", y="error", color="squad",
+        orientation="h",
+        title=f"Quarantined rows by squad and error class ({q_total} total, "
+              f"{quarantine_rate_pct:.2f}% of input)",
+        labels={"n": "Count", "error": "Error class", "squad": "Squad"},
+        color_discrete_map=SQUAD_COLORS,
+    )
+    fig.update_traces(hovertemplate="<b>%{y}</b><br>%{fullData.name}: %{x}<extra></extra>")
+    fig.update_layout(yaxis={"categoryorder": "total ascending"})
+    fig.update_xaxes(gridcolor="#f1f5f9")
+    style(fig, height=380)
+else:
+    print("No quarantined rows in this run.")
+```
+
+::: {.callout-tip appearance="simple" icon=false}
+**Takeaway.** Mock data injects roughly 2% intentionally malformed rows per squad. The pipeline routes them to per-squad quarantine JSON (with the original payload and the validation error) without blocking the valid rows. Two error families dominate: Pydantic ValidationError for schema breaches, and AdapterParseError for unrecoverable squad-level parse failures (for example, an amount string of "AED twelve fifty").
+:::
+
+---
+
+## Reproducibility
+
+Everything on this page is regenerated on every CI run. The pages workflow runs `seed`, `ingest`, and `quarto render` from a clean checkout.
+
+::: {.grid}
+
+::: {.g-col-md-4 .g-col-12}
+**Determinism**
+
+Mock data uses `Faker(seed=42)` and a frozen `REFERENCE_DATE = 2026-04-27`. Re-runs produce byte-identical CSVs (md5-verified).
+:::
+
+::: {.g-col-md-4 .g-col-12}
+**Idempotent canonical**
+
+`event_id` is a deterministic ULID derived from `idempotency_key`. Re-ingest produces semantically identical Parquet output.
+:::
+
+::: {.g-col-md-4 .g-col-12}
+**Replay locally**
+
+```bash
+make install
+make seed
+make run
+make query
+```
+
+Three commands, no Docker.
+:::
+
+:::
+
+## Production gaps
+
+For 100K transactions per day the missing pieces are: real orchestration (Dagster), CDC ingestion (Debezium and Kafka), customer identity resolution, PII tokenization, schema registry, and multi-region DR. These are detailed in the architecture doc (D2).
