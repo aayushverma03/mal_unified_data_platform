@@ -30,7 +30,27 @@ format:
     include-in-header:
       text: |
         \usepackage{enumitem}
+        \usepackage[table]{xcolor}
+        \usepackage{colortbl}
+        \usepackage{booktabs}
+        \usepackage{array}
+        \usepackage{etoolbox}
+        \definecolor{tblHdrBg}{HTML}{0F172A}
+        \definecolor{tblHdrText}{HTML}{FFFFFF}
+        \definecolor{tblRowAlt}{HTML}{F1F5F9}
+        \definecolor{tblRule}{HTML}{CBD5E1}
+        \definecolor{prioHigh}{HTML}{DC2626}
+        \definecolor{prioMed}{HTML}{D97706}
+        \arrayrulecolor{tblRule}
+        \renewcommand{\arraystretch}{1.45}
         \setlist{nosep}
+        % Apply zebra striping inside pandoc's longtable environment.
+        % Row 1 is the header (kept white so the booktabs rules read clean);
+        % row 2 onwards alternates F1F5F9 / white.
+        \AtBeginEnvironment{longtable}{\rowcolors{2}{tblRowAlt}{white}}
+        % High and Medium priority badges for the gap table.
+        \newcommand{\hi}{\textcolor{prioHigh}{\textbf{High}}}
+        \newcommand{\md}{\textcolor{prioMed}{\textbf{Medium}}}
 ---
 
 ## Executive summary {-}
@@ -143,17 +163,19 @@ D1 is scoped for a 30-second local run. At Mal's expected production volume of a
 ### Gap punch list
 
 | Gap | What D1 does | What production needs | Priority |
-|---|---|---|---|
-| Orchestration | One Python process | Dagster (asset-based, SQL sensors, lineage UI) | High |
-| Ingestion | CSV files in `data/raw/` | Debezium and Kafka for CDC, 30-second freshness SLO | High |
-| Customer identity | `customer_id` string trusted from each squad | Identity service deduplicating across phone, email, national ID | High |
-| PII tokenization | last4 only; no real PII in mocks | Vault or KMS for tokens; analytics never sees raw PII | High |
-| Observability | One INFO line per squad per run | Structured logging, per-stage metrics, alerts on quarantine spikes | High |
-| Schema registry | Pydantic models in the repo | Confluent Schema Registry or Git-based registry with evolution rules | Medium |
-| Multi-region DR | Single local Parquet directory | UAE-resident primary, second region for DR, CBUAE residency rules | Medium |
-| Backfill and replay | Re-run `make seed` and `make run` | Replay-from-Kafka with idempotent writes; backfill jobs in Dagster | Medium |
-| Dashboards | Static GitHub Pages report and Streamlit (D3) | Looker or Superset on the canonical store, with squad-specific saved views | Medium |
-| FX rates | Hardcoded USD, AED, GBP | Price-service integration with timestamped rates and audit trail | Medium |
+|:----|:-------------|:---------------------|:--------:|
+| Orchestration | One Python process | Dagster (asset-based, SQL sensors, lineage UI) | `\hi`{=latex}`<span class="prio-high">High</span>`{=html} |
+| Ingestion | CSV files in `data/raw/` | Debezium and Kafka for CDC, 30-second freshness SLO | `\hi`{=latex}`<span class="prio-high">High</span>`{=html} |
+| Customer identity | `customer_id` string trusted from each squad | Identity service deduplicating across phone, email, national ID | `\hi`{=latex}`<span class="prio-high">High</span>`{=html} |
+| PII tokenization | `last4` only, no real PII in mocks | Vault or KMS for tokens, analytics never sees raw PII | `\hi`{=latex}`<span class="prio-high">High</span>`{=html} |
+| Observability | One INFO line per squad per run | Structured logging, per-stage metrics, alerts on quarantine spikes | `\hi`{=latex}`<span class="prio-high">High</span>`{=html} |
+| Schema registry | Pydantic models in the repo | Confluent Schema Registry or Git-based registry with evolution rules | `\md`{=latex}`<span class="prio-med">Medium</span>`{=html} |
+| Multi-region DR | Single local Parquet directory | UAE-resident primary, second region for DR, CBUAE residency rules | `\md`{=latex}`<span class="prio-med">Medium</span>`{=html} |
+| Backfill and replay | Re-run `make seed` and `make run` | Replay-from-Kafka with idempotent writes, backfill jobs in Dagster | `\md`{=latex}`<span class="prio-med">Medium</span>`{=html} |
+| Dashboards | Static GitHub Pages report, Streamlit (D3) | Looker or Superset on the canonical store, with squad-specific saved views | `\md`{=latex}`<span class="prio-med">Medium</span>`{=html} |
+| FX rates | Hardcoded USD, AED, GBP | Price-service integration with timestamped rates and audit trail | `\md`{=latex}`<span class="prio-med">Medium</span>`{=html} |
+
+: Production gap punch list {tbl-colwidths="[18, 24, 46, 12]"}
 
 The High items are non-negotiable for a production launch. The Medium items can land iteratively after the canonical store is live. None of them change the canonical model.
 
