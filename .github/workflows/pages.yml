@@ -23,6 +23,8 @@ jobs:
         run: uv venv --python 3.11
 
       - uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          tinytex: true
 
       - name: Install dependencies
         run: |
@@ -34,8 +36,11 @@ jobs:
           uv run python -m mal_payments.run seed
           uv run python -m mal_payments.run ingest
 
-      - name: Render report
+      - name: Render live report
         run: uv run quarto render docs/report.qmd
+
+      - name: Render architecture (HTML + PDF)
+        run: uv run quarto render docs/architecture.qmd
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -1,4 +1,4 @@
-.PHONY: install seed run migrate query test lint line-count report dashboard all clean
+.PHONY: install seed run migrate query test lint line-count report architecture site dashboard all clean
 
 install:
 	uv venv --python 3.11
@@ -37,6 +37,12 @@ line-count:
 
 report:
 	uv run quarto render docs/report.qmd
+
+architecture:
+	uv run quarto render docs/architecture.qmd
+	cp docs/_site/architecture.pdf docs/architecture.pdf
+
+site: report architecture
 
 dashboard:
 	uv run streamlit run dashboard/app.py

@@ -104,11 +104,14 @@ for the model, and [PROJECT_BRIEF.md](PROJECT_BRIEF.md) for design context.
 
 ## Live demos
 
-- **Static report (always-on):** <https://aayushverma03.github.io/mal_unified_data_platform/>.
+- **Live report (always-on):** <https://aayushverma03.github.io/mal_unified_data_platform/>.
   Quarto-rendered page showing sample canonical records, all 5 SQL
-  outputs as charts, and the quarantine breakdown. Re-rendered on every
-  push to `main` via `.github/workflows/pages.yml`. Source:
+  outputs as charts, and the quarantine breakdown. Source:
   [`docs/report.qmd`](docs/report.qmd).
+- **Architecture (D2):** [`docs/architecture.pdf`](docs/architecture.pdf)
+  in this repo, or
+  <https://aayushverma03.github.io/mal_unified_data_platform/architecture.html>
+  for the web version. Source: [`docs/architecture.qmd`](docs/architecture.qmd).
 - **Interactive dashboard (D3):** [Streamlit Cloud link]. Data-quality
   monitoring (separate deliverable in `dashboard/`).
 
