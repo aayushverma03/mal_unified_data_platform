@@ -1,4 +1,4 @@
-.PHONY: install seed run migrate query test lint line-count report architecture site dashboard all clean
+.PHONY: install seed run migrate query test lint line-count report architecture diagrams site dashboard all clean
 
 install:
 	uv venv --python 3.11
@@ -38,9 +38,12 @@ line-count:
 report:
 	uv run quarto render docs/report.qmd
 
-architecture:
+architecture: diagrams
 	uv run quarto render docs/architecture.qmd
 	cp docs/_site/architecture.pdf docs/architecture.pdf
+
+diagrams:
+	uv run python scripts/generate_diagrams.py
 
 site: report architecture
 

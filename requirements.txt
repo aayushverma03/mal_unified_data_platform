@@ -17,6 +17,9 @@ plotly>=5.20
 # Quarto report (D1 GitHub Pages live demo)
 jupyter>=1.0
 
+# D2 architecture diagrams (matplotlib renders the 3 PNGs in docs/img/)
+matplotlib>=3.8
+
 # Dev
 pytest>=8.0
 pytest-cov>=4.1
