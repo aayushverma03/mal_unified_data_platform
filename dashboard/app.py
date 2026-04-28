@@ -89,20 +89,20 @@ def load_quarantine() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _style(fig, height=360, show_title=False):
+def _style(fig, height=360):
     fig.update_layout(
         template="plotly_white", height=height,
-        margin=dict(l=10, r=10, t=20 if not show_title else 50, b=10),
+        margin=dict(l=10, r=10, t=20, b=10),
         plot_bgcolor="white", paper_bgcolor="white",
         font=dict(family="Inter, system-ui, sans-serif", size=12, color="#334155"),
-        title_font=dict(size=14, color="#0f172a"),
+        title=None,
         legend=dict(
-            orientation="h", yanchor="bottom", y=-0.18,
-            xanchor="left", x=0,
+            orientation="h", yanchor="bottom", y=-0.22,
+            xanchor="left", x=0, title_text="",
             bgcolor="rgba(255,255,255,0)", borderwidth=0,
         ),
     )
-    fig.update_xaxes(showgrid=False, linecolor="#e5e7eb", zeroline=False)
+    fig.update_xaxes(showgrid=False, linecolor="#e5e7eb", zeroline=False, title=None)
     fig.update_yaxes(gridcolor="#f1f5f9", linecolor="#e5e7eb", zeroline=False)
     return fig
 
