@@ -112,12 +112,11 @@ for the model, and [PROJECT_BRIEF.md](PROJECT_BRIEF.md) for design context.
   in this repo, or
   <https://aayushverma03.github.io/mal_unified_data_platform/architecture.html>
   for the web version. Source: [`docs/architecture.qmd`](docs/architecture.qmd).
-- **Interactive dashboard (D3):** Streamlit data-quality monitoring app
-  in [`dashboard/`](dashboard/). Tabs for ingestion, quarantine, schema
-  drift, lifecycle gaps, and an event explorer. Run locally with
-  `make dashboard`; for the public URL, deploy via Streamlit Cloud
-  (see [`dashboard/README.md`](dashboard/README.md) for the 6-step
-  deploy guide).
+- **Interactive dashboard (D3):** <https://mal-payments-dq.streamlit.app>.
+  Streamlit data-quality monitoring with tabs for ingestion, quarantine,
+  schema drift, lifecycle gaps, and an event explorer. Auto-runs `seed`
+  and `ingest` on cold start so the URL is never empty. Source:
+  [`dashboard/app.py`](dashboard/app.py).
 
 > GitHub Pages is the insurance. Streamlit apps go to sleep and sometimes
 > fail to wake; a static site does not.
