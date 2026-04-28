@@ -202,7 +202,7 @@ def draw_target_architecture():
 # ---------------------------------------------------------------------------
 
 def draw_migration_timeline():
-    fig, ax = plt.subplots(figsize=(12, 5.6), dpi=200)
+    fig, ax = plt.subplots(figsize=(12, 6.4), dpi=200)
     ax.set_xlim(-1, 26); ax.set_ylim(0, 8.4)
     ax.set_xticks([]); ax.set_yticks([])
     ax.set_facecolor(WHITE)
@@ -248,13 +248,13 @@ def draw_migration_timeline():
         ax.plot(x, 7.5, marker="v", color="#dc2626", markersize=10, zorder=5)
         ax.text(x, 7.75, label, ha="center", va="bottom", fontsize=8, color="#7f1d1d", fontweight="bold")
 
-    fig.suptitle("Migration timeline: 24 weeks across four phases",
-                 x=0.05, y=0.98, ha="left", fontsize=13, fontweight="bold", color=INK)
-    fig.text(0.05, 0.94,
+    fig.text(0.05, 0.96, "Migration timeline: 24 weeks across four phases",
+             ha="left", va="top", fontsize=13, fontweight="bold", color=INK)
+    fig.text(0.05, 0.91,
              "Phase 0 has zero blast radius. Phases 1 to 2 are mechanical once the delta report is green for two weeks. Phase 3 is opt-in and runs at each squad's pace.",
-             ha="left", fontsize=9.5, color=SLATE)
+             ha="left", va="top", fontsize=9.5, color=SLATE)
 
-    plt.tight_layout(rect=[0, 0, 1, 0.92])
+    plt.tight_layout(rect=[0, 0, 1, 0.86])
     out = OUT / "migration_timeline.png"
     fig.savefig(out, dpi=200, bbox_inches="tight", facecolor=WHITE)
     plt.close(fig)
