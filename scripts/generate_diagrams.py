@@ -94,9 +94,9 @@ def draw_current_state():
         _arrow(ax, x + 1.5, 5.2, x + 1.5, 4.8, color=SLATE)
         _arrow(ax, x + 1.5, 3.8, x + 1.5, 3.4, color=SLATE)
 
-    # Manual reconciliation box at the bottom
-    _box(ax, 2.5, 0.5, 7, 1.2,
-         "Manual reconciliation\nFinance joins three extracts by hand. Customer-id semantics differ. Float rounding errors.",
+    # Manual reconciliation box at the bottom (widened so subtext fits)
+    _box(ax, 1.0, 0.5, 10, 1.2,
+         "Manual reconciliation\nFinance joins three extracts by hand.\nCustomer-id semantics differ. Float rounding errors.",
          fill="#fef2f2", edge="#dc2626", text_color="#7f1d1d", fontweight="bold", fontsize=9)
 
     # Three converging arrows
@@ -202,39 +202,42 @@ def draw_target_architecture():
 # ---------------------------------------------------------------------------
 
 def draw_migration_timeline():
-    fig, ax = plt.subplots(figsize=(12, 4.8), dpi=200)
-    ax.set_xlim(-1, 26); ax.set_ylim(0, 6)
+    fig, ax = plt.subplots(figsize=(12, 5.6), dpi=200)
+    ax.set_xlim(-1, 26); ax.set_ylim(0, 8.4)
     ax.set_xticks([]); ax.set_yticks([])
     ax.set_facecolor(WHITE)
     for s in ["top", "right", "left"]:
         ax.spines[s].set_visible(False)
     ax.spines["bottom"].set_color("#cbd5e1")
 
-    # Week ticks
+    # Week gridlines + labels
     for w in [0, 4, 8, 12, 16, 20, 24]:
         ax.axvline(w, color="#e2e8f0", lw=0.8, ymin=0.05, ymax=0.95, zorder=0)
         ax.text(w, 0.2, f"W{w}" if w else "Start", ha="center", va="top", fontsize=8.5, color=SLATE)
     ax.text(25, 0.2, "Week", ha="left", va="top", fontsize=8.5, color=SLATE, fontweight="bold")
 
+    # Phases sit far enough apart that subtext does not collide with the
+    # next bar. Each phase tuple: (y, x_start, duration, title, subtext, color).
     phases = [
-        (4.6, 0,  4,  "Phase 0  Shadow mode",        "Adapters write to canonical store, squad systems unchanged",  INDIGO),
-        (3.6, 4,  4,  "Phase 1  Dual-write",         "Squads dual-write. Consumers cut over to canonical store",    SKY),
-        (2.6, 8,  4,  "Phase 2  Cutover",            "Squad-specific reports decommissioned, 30-day grace window",  PURPLE),
-        (1.6, 12, 12, "Phase 3  Schema convergence", "Squad transactional schemas optionally adopt canonical fields", BILLS),
+        (6.2, 0,  4,  "Phase 0   Shadow mode",        "Adapters write to canonical store, squad systems unchanged",   INDIGO),
+        (4.7, 4,  4,  "Phase 1   Dual-write",         "Squads dual-write. Consumers cut over to canonical store",     SKY),
+        (3.2, 8,  4,  "Phase 2   Cutover",            "Squad-specific reports decommissioned, 30-day grace window",   PURPLE),
+        (1.7, 12, 12, "Phase 3   Schema convergence", "Squad transactional schemas optionally adopt canonical fields", BILLS),
     ]
 
+    bar_h = 0.85
     for y, x_start, dur, label, sub, color in phases:
         bar = FancyBboxPatch(
-            (x_start, y), dur, 0.7, boxstyle="round,pad=0.01,rounding_size=0.05",
+            (x_start, y), dur, bar_h, boxstyle="round,pad=0.01,rounding_size=0.05",
             linewidth=1.2, edgecolor=color, facecolor=color + "26",
         )
         ax.add_patch(bar)
-        ax.text(x_start + 0.15, y + 0.35, label,
+        ax.text(x_start + 0.2, y + bar_h / 2, label,
                 ha="left", va="center", fontsize=10, fontweight="bold", color=INK)
-        ax.text(x_start + 0.15, y - 0.2, sub,
+        ax.text(x_start + 0.2, y - 0.32, sub,
                 ha="left", va="center", fontsize=8.5, color=SLATE)
 
-    # Milestone markers
+    # Milestone markers along the top
     milestones = [
         (4,  "Delta report green"),
         (8,  "Squad PM signoff"),
@@ -242,16 +245,16 @@ def draw_migration_timeline():
         (24, "Convergence opt-in"),
     ]
     for x, label in milestones:
-        ax.plot(x, 5.4, marker="v", color="#dc2626", markersize=10, zorder=5)
-        ax.text(x, 5.65, label, ha="center", va="bottom", fontsize=8, color="#7f1d1d", fontweight="bold")
+        ax.plot(x, 7.5, marker="v", color="#dc2626", markersize=10, zorder=5)
+        ax.text(x, 7.75, label, ha="center", va="bottom", fontsize=8, color="#7f1d1d", fontweight="bold")
 
     fig.suptitle("Migration timeline: 24 weeks across four phases",
                  x=0.05, y=0.98, ha="left", fontsize=13, fontweight="bold", color=INK)
-    fig.text(0.05, 0.93,
+    fig.text(0.05, 0.94,
              "Phase 0 has zero blast radius. Phases 1 to 2 are mechanical once the delta report is green for two weeks. Phase 3 is opt-in and runs at each squad's pace.",
              ha="left", fontsize=9.5, color=SLATE)
 
-    plt.tight_layout(rect=[0, 0, 1, 0.91])
+    plt.tight_layout(rect=[0, 0, 1, 0.92])
     out = OUT / "migration_timeline.png"
     fig.savefig(out, dpi=200, bbox_inches="tight", facecolor=WHITE)
     plt.close(fig)

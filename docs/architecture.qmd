@@ -189,8 +189,3 @@ The platform earns its keep on three axes.
 
 D3's data-quality dashboard surfaces the leading-quality metrics in real time. Finance and Customer Success own the lagging adoption metrics; platform reliability owns the operational performance metrics.
 
-## Closing
-
-D1 proves the canonical model and the quarantine pattern. D2 puts a four-phase migration plan, a production-gap punch list, a risk register, and a success-metric framework against it. D3 gives platform reliability the per-squad ingestion-rate, quarantine-rate, and schema-drift signals it needs to operate this in production.
-
-The single biggest risk is adoption, not technology. Phase 0 is what proves the canonical model handles each squad's reality without any squad changing anything. Once that delta report is green for two weeks, dual-write and cutover are mechanical. Phase 3 is the bonus, not the goal. The goal is one canonical event store that Finance, Customer Success, Compliance, and Platform reliability can all rely on.
